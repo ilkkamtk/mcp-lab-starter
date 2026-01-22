@@ -19,10 +19,12 @@ const escapeText = (str: string): string =>
   str.replace(/[\\,;]/g, (match) => `\\${match}`).replace(/\n/g, '\\n');
 
 /**
- * Format a Date as iCal UTC timestamp (YYYYMMDDTHHMMSSZ).
+ * Format a Date as iCal local timestamp (TZID=timezone:YYYYMMDDTHHMMSS).
  */
-const toCalDavUTC = (date: Date): string =>
-  DateTime.fromJSDate(date).toUTC().toFormat("yyyyMMdd'T'HHmmss'Z'");
+const toCalDav = (date: Date): string => {
+  // Always output UTC time
+  return DateTime.fromJSDate(date).toUTC().toFormat("yyyyMMdd'T'HHmmss");
+};
 
 /**
  * Generate an iCal formatted string from the given input.
@@ -44,7 +46,9 @@ const generateICal = (input: ICalInput): string => {
   } = input;
 
   const finalUid = uid || `${crypto.randomUUID()}@${domain}`;
-  const now = toCalDavUTC(new Date());
+  const now = toCalDav(new Date());
+
+  const timezone = 'Europe/Helsinki';
 
   const lines = [
     'BEGIN:VCALENDAR',
@@ -54,8 +58,8 @@ const generateICal = (input: ICalInput): string => {
     'BEGIN:VEVENT',
     `UID:${finalUid}`,
     `DTSTAMP:${now}`,
-    `DTSTART:${toCalDavUTC(start)}`,
-    `DTEND:${toCalDavUTC(end)}`,
+    `DTSTART;TZID=${timezone}:${toCalDav(start)}`,
+    `DTEND;TZID=${timezone}:${toCalDav(end)}`,
     `SUMMARY:${escapeText(title)}`,
   ];
 
