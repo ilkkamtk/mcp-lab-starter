@@ -19,7 +19,7 @@ const escapeText = (str: string): string =>
   str.replace(/[\\,;]/g, (match) => `\\${match}`).replace(/\n/g, '\\n');
 
 /**
- * Format a Date as iCal local timestamp (TZID=timezone:YYYYMMDDTHHMMSS).
+ * Format a Date to CalDav.
  */
 const toCalDav = (date: Date): string => {
   // Always output UTC time
