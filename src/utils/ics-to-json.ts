@@ -45,42 +45,41 @@ const clean = (string: string | undefined): string => {
   }
 };
 
+const unfoldLines = (raw: string): string[] => {
+  const lines = raw.split(NEW_LINE);
+  const result: string[] = [];
+
+  for (const line of lines) {
+    if (line.startsWith(' ') && result.length > 0) {
+      result[result.length - 1] += line.slice(1);
+    } else {
+      result.push(line);
+    }
+  }
+
+  return result;
+};
+
+const parseLine = (line: string): { parsedKey: string; value: string } => {
+  const colonIndex = line.indexOf(':');
+  const key = colonIndex === -1 ? line : line.slice(0, colonIndex);
+  const value = colonIndex === -1 ? '' : line.slice(colonIndex + 1);
+
+  const semicolonIndex = key.indexOf(';');
+  const parsedKey = semicolonIndex === -1 ? key : key.slice(0, semicolonIndex);
+
+  return { parsedKey, value };
+};
+
 export const icsToJson = (icsData: string): ICSEvent[] => {
   const array: ICSEvent[] = [];
   let currentObj: ICSEvent = {};
-  let lastKey = '';
-
-  const lines = icsData.split(NEW_LINE);
-
   let isAlarm = false;
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i] ?? '';
-    // Split only on the first colon to preserve values containing ':' (e.g., URLs, descriptions)
-    const colonIndex = line.indexOf(':');
-    const key = colonIndex === -1 ? line : line.slice(0, colonIndex);
-    const value = colonIndex === -1 ? '' : line.slice(colonIndex + 1);
 
-    let parsedKey = key;
+  const lines = unfoldLines(icsData);
 
-    if (parsedKey && parsedKey.indexOf(';') !== -1) {
-      const keyParts = parsedKey.split(';');
-      parsedKey = keyParts[0] ?? parsedKey;
-      // Maybe do something with that second part later
-    }
-
-    if (parsedKey) {
-      if (colonIndex === -1) {
-        if (
-          parsedKey.startsWith(' ') &&
-          lastKey !== undefined &&
-          lastKey.length > 0
-        ) {
-          currentObj[lastKey] += clean(line.substring(1));
-        }
-      } else if (parsedKey in keyMap) {
-        lastKey = keyMap[parsedKey as KeyMapKey];
-      }
-    }
+  for (const line of lines) {
+    const { parsedKey, value } = parseLine(line);
 
     switch (parsedKey) {
       case EVENT_START:
@@ -89,29 +88,28 @@ export const icsToJson = (icsData: string): ICSEvent[] => {
         } else if (value === ALARM) {
           isAlarm = true;
         }
-        break;
+        continue;
       case EVENT_END:
         isAlarm = false;
         if (value === EVENT) array.push(currentObj);
-        break;
-      case START_DATE:
-        currentObj[keyMap[START_DATE]] = value;
-        break;
-      case END_DATE:
-        currentObj[keyMap[END_DATE]] = value;
-        break;
-      case DESCRIPTION:
-        if (!isAlarm) currentObj[keyMap[DESCRIPTION]] = clean(value);
-        break;
-      case SUMMARY:
-        currentObj[keyMap[SUMMARY]] = clean(value);
-        break;
-      case LOCATION:
-        currentObj[keyMap[LOCATION]] = clean(value);
-        break;
-      default:
         continue;
     }
+
+    if (!(parsedKey in keyMap)) {
+      continue;
+    }
+
+    if (parsedKey === DESCRIPTION && isAlarm) {
+      continue;
+    }
+
+    const prop = keyMap[parsedKey as KeyMapKey];
+    const shouldClean =
+      parsedKey === DESCRIPTION ||
+      parsedKey === SUMMARY ||
+      parsedKey === LOCATION;
+
+    currentObj[prop] = shouldClean ? clean(value) : value;
   }
   return array;
 };
