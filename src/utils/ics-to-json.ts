@@ -1,5 +1,7 @@
 // source: https://github.com/cwlsn/ics-to-json
 
+import { DateTime } from 'luxon';
+
 const NEW_LINE = /\r\n|\n|\r/;
 
 const EVENT = 'VEVENT';
@@ -32,6 +34,10 @@ export interface ICSEvent {
   /** Allow additional fields that may be added in the future */
   [key: string]: string | undefined;
 }
+
+const iscToDateString = (icsDate: string): string => {
+  return DateTime.fromFormat(icsDate, "yyyyMMdd'T'HHmmss").toISO() ?? '';
+};
 
 const clean = (string: string | undefined): string => {
   if (string == undefined) {
@@ -109,7 +115,13 @@ export const icsToJson = (icsData: string): ICSEvent[] => {
       parsedKey === SUMMARY ||
       parsedKey === LOCATION;
 
-    currentObj[prop] = shouldClean ? clean(value) : value;
+    const shouldFormatDate = parsedKey === START_DATE || parsedKey === END_DATE;
+
+    currentObj[prop] = shouldClean
+      ? clean(value)
+      : shouldFormatDate
+        ? iscToDateString(value)
+        : value;
   }
   return array;
 };
